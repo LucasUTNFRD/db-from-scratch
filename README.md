@@ -5,11 +5,12 @@ anoterh toy db implementation.
 - 2st layer it consitts of Relational DB on top of the previous KV store.
 
 - [ ] On-disk B+ tree implementation
-  - [ ] Btree struct
-  - [ ] Bnode struct
-  - [ ] Update methods
+  - [x] Btree struct
+  - [x] Bnode struct
+  - [x] Update methods
     - [x] Insert
-    - [ ] Delete
+    - [x] Delete
+    - [ ] Exhaustive testing for edge cases in deletion
 - [ ] Append only KV
 - [ ] SQL-like language for KV.
   - [ ] interpreter
