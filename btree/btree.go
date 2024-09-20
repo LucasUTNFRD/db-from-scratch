@@ -1,6 +1,6 @@
 package btree
 
-import "fmt"
+import "bytes"
 
 const (
 	HEADER             = 4
@@ -11,14 +11,34 @@ const (
 
 type BTree struct {
 	root uint64
-	get  func(uint64) []byte // Read a page from disk
-	new  func([]byte) uint64 // Append a new page to disk
-	del  func(uint64)        // Delete a page from disk (optional)
+	get  func(uint64) []byte // dereference a pointer
+	new  func([]byte) uint64 // allocate a new page
+	del  func(uint64)        // deallocate a page
 }
 
-func (t *BTree) Get(key []byte) ([]byte, bool) {
-	// Implement B+ tree search logic here
-	return nil, false
+func (tree *BTree) Get(key []byte) ([]byte, bool) {
+	if tree.root == 0 {
+		return nil, false // Tree is empty
+	}
+
+	node := BNode(tree.get(tree.root))
+	for {
+		idx, found := node.search(key)
+
+		if node.getType() == BNODE_LEAF {
+			if found {
+				return node.getVal(idx), true
+			}
+			return nil, false // Key not found
+		}
+
+		// Internal node: move to the appropriate child
+		if idx == node.getNKeys() {
+			idx--
+		}
+		childPtr := node.getPtr(idx)
+		node = BNode(tree.get(childPtr))
+	}
 }
 
 // func (t *BTree) Insert(key, value []byte) {
@@ -38,7 +58,7 @@ func (tree *BTree) Insert(key []byte, val []byte) {
 		return
 	}
 	node := treeInsert(tree, tree.get(tree.root), key, val)
-	fmt.Println(node.nbytes())
+	// fmt.Println(node.nbytes())
 	nsplit, split := nodeSplitInThree(node)
 	tree.del(tree.root)
 	if nsplit > 1 {
@@ -55,7 +75,25 @@ func (tree *BTree) Insert(key []byte, val []byte) {
 	}
 }
 
-func (t *BTree) Delete(key []byte) bool {
-	// Implement B+ tree delete logic with Copy-on-Write here
-	return false
+func (tree *BTree) Delete(key []byte) bool {
+	if tree.root == 0 {
+		return false // Tree is empty, nothing to delete
+	}
+
+	rootNode := tree.get(tree.root) //read the root from disk
+	newRoot := treeDelete(tree, rootNode, key)
+
+	// If the root has changed (due to merging or rebalancing)
+	if !bytes.Equal(rootNode, newRoot) {
+		tree.del(tree.root) // Delete the old root
+		if newRoot.getNKeys() == 0 {
+			// The tree has become empty
+			tree.root = 0
+		} else {
+			// Update the root
+			tree.root = tree.new(newRoot)
+		}
+	}
+
+	return true // Key was found and deleted (or attempted to delete)
 }
